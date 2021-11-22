@@ -63,7 +63,7 @@ class MetaImageNet(ImageNet):
         super(MetaImageNet, self).__init__(args, partition, False)
         self.fix_seed = fix_seed
         self.n_ways = 5
-        self.n_shots = 5
+        self.n_shots = 1
         self.n_queries = 15
         self.classes = list(self.data.keys())
         self.n_test_runs = args.n_test_runs
@@ -94,6 +94,8 @@ class MetaImageNet(ImageNet):
     def __getitem__(self, item):
         if self.fix_seed:
             np.random.seed(item)
+        
+        # choose 5 random classes
         cls_sampled = np.random.choice(self.classes, self.n_ways, False)
         support_xs = []
         support_ys = []
@@ -119,9 +121,10 @@ class MetaImageNet(ImageNet):
         query_ys = query_ys.reshape((num_ways * n_queries_per_way, ))
                 
         support_xs = support_xs.reshape((-1, height, width, channel))
-        if self.n_aug_support_samples > 1:
-            support_xs = np.tile(support_xs, (self.n_aug_support_samples, 1, 1, 1))
-            support_ys = np.tile(support_ys.reshape((-1, )), (self.n_aug_support_samples))
+        
+        support_xs = np.tile(support_xs, (self.n_aug_support_samples, 1, 1, 1))
+        support_ys = np.tile(support_ys.reshape((-1, )), (self.n_aug_support_samples))
+        
         support_xs = np.split(support_xs, support_xs.shape[0], axis=0)
         query_xs = query_xs.reshape((-1, height, width, channel))
         query_xs = np.split(query_xs, query_xs.shape[0], axis=0)
