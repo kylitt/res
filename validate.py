@@ -10,7 +10,7 @@ def validate(epoch, model, val_data, criterion):
     # Turn off gradient within this context
     with torch.no_grad():
 
-        for idx, (input,target,_) in enumerate(val_data):
+        for idx, (input, target, _) in enumerate(val_data):
 
             # Convert input data to a float
             input = input.float()
@@ -26,7 +26,7 @@ def validate(epoch, model, val_data, criterion):
             output = model(input)
 
             # Loss
-            loss = criterion(output,target)
+            loss = criterion(output, target)
 
             # print info
             if idx % 100 == 0:
