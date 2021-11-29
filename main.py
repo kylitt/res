@@ -26,7 +26,10 @@ def main():
     n_cls = 64
 
     # Number of distillations
-    distillations = 1
+    distillations = 0
+
+    # Number of epochs
+    epoch = 1
 
     # Teacher model
     # Load the Pytorch ResNet18 model
@@ -52,8 +55,6 @@ def main():
 
         # Optimize algorithm for the given hardware
         cudnn.benchmark = True
-
-    epoch = 10
 
     # train
     for i in range(1,epoch+1):
@@ -103,11 +104,11 @@ def main():
         model_t = model_s
 
     # does not support multiple gpu
-    state = {'model': model_s.state_dict()}
+    state = {'model': model_t.state_dict()}
     torch.save(state,'./models/resnet_dist.pth')
 
     # test final model
-    test(model_s, meta_test_data)
+    test(model_t, meta_test_data)
 
 if __name__ == '__main__':
     main()
