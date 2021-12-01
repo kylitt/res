@@ -8,7 +8,6 @@ from train import train
 from validate import validate
 from test import test
 from distill import distill
-from resnet import resnet12
 from pytorch_resnet import resnet18
 
 
@@ -28,18 +27,17 @@ def main():
     n_cls = 64
 
     # Number of distillations
-    distillations = 1
+    distillations = 0
 
     # Number of epochs
-    epoch = 10
+    epoch = 60
 
-    # Teacher model
-    # Load the Pytorch ResNet18 model
-    model = resnet12(avg_pool=True, drop_rate=0.1, dropblock_size=5, num_classes=n_cls)
+    # Load the Pytorch ResNet18 model, adapted to a ResNet12
     model = resnet18(pretrained = False, num_classes=n_cls)
-    #model = torch.hub.load('pytorch/vision:v0.10.0','resnet18', pretrained = False, num_classes=n_cls)
+
     # Create a Stochastic Gradient Descent optimizer with the given parameters
     optimizer = optim.SGD(model.parameters(), lr=0.05, momentum=0.9, weight_decay=5e-4)
+
     # Cross Entropy Loss 
     criterion = nn.CrossEntropyLoss()
 
@@ -54,8 +52,6 @@ def main():
         # else assigns to the default GPU
         model = model.to('cuda')
         criterion = criterion.to('cuda')
-        # model_s = model_s.to('cuda')
-        # criterion_s = criterion_s.to('cuda')
 
         # Optimize algorithm for the given hardware
         cudnn.benchmark = True
@@ -66,24 +62,25 @@ def main():
         train(i, model, optimizer, train_data, criterion)
 
         #validate teacher
-        validate(i, model, val_data, criterion)
+        #validate(i, model, val_data, criterion)
 
     # does not support multiple gpu
     state = {'model': model.state_dict()}
     torch.save(state,'./models/resnet_simple.pth')
 
     # distill
+    # set model as teacher
     model_t = model
     for j in range(distillations):
         # Sudent model
-        # Load the Pytorch ResNet18 model
-        #model_s = resnet12(avg_pool=True, drop_rate=0.1, dropblock_size=5, num_classes=n_cls)
         model_s = resnet18(pretrained = False, num_classes=n_cls)
-        #model_s = torch.hub.load('pytorch/vision:v0.10.0','resnet18', pretrained = False, num_classes=n_cls)
+
         # Create a Stochastic Gradient Descent optimizer with the given parameters
         optimizer_s = optim.SGD(model_s.parameters(), lr=0.05, momentum=0.9, weight_decay=5e-4)
+
         # Cross Entropy Loss 
         criterion_s = nn.CrossEntropyLoss()
+        
         # GPU Available?
         if torch.cuda.is_available():
 
@@ -104,7 +101,7 @@ def main():
             distill(j, model_t, model_s, optimizer_s, train_data, criterion_s)
 
             #validate student
-            validate(j, model_s, val_data, criterion_s)
+            #validate(j, model_s, val_data, criterion_s)
 
         # Teacher model
         model_t = model_s

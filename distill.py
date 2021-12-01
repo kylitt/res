@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import torch.nn.functional as F
 
 # helper function from paper
@@ -9,7 +10,19 @@ def div(output_s, output_t):
     loss = F.kl_div(s, t, reduction='sum') * (temperature**2) / s.shape[0]
     return loss
 
+# Helper
+def adjust_learning_rate(epoch, optimizer):
+    decay_epochs = np.array([20,40])
+    decay_rate = 0.1
+    steps = np.sum(epoch > decay_epochs)
+    if steps > 0:
+        new_lr = 0.05 * (decay_rate ** steps)
+        #print(new_lr)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = new_lr
+
 def distill(i, model_t, model_s, optimizer, train_data, criterion):
+    adjust_learning_rate(i,optimizer)
     print('distillation ...')
     # Shift into train mode
     model_s.train()

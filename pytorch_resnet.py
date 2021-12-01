@@ -1,13 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Bernoulli
-
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
            'wide_resnet50_2', 'wide_resnet101_2']
-
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -21,75 +18,16 @@ model_urls = {
     'wide_resnet101_2': 'https://download.pytorch.org/models/wide_resnet101_2-32ee1156.pth',
 }
 
-
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=dilation, groups=groups, bias=False, dilation=dilation)
 
-
-def conv1x1(in_planes, out_planes, stride=1):
-    """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
-
-
-class DropBlock(nn.Module):
-    def __init__(self, block_size):
-        super(DropBlock, self).__init__()
-
-        self.block_size = block_size
-
-    def forward(self, x, gamma):
-
-        if self.training:
-            batch_size, channels, height, width = x.shape
-            
-            bernoulli = Bernoulli(gamma)
-            mask = bernoulli.sample((batch_size, channels, height - (self.block_size - 1), width - (self.block_size - 1))).cuda()
-            block_mask = self._compute_block_mask(mask)
-            countM = block_mask.size()[0] * block_mask.size()[1] * block_mask.size()[2] * block_mask.size()[3]
-            count_ones = block_mask.sum()
-
-            return block_mask * x * (countM / count_ones)
-        else:
-            return x
-
-    def _compute_block_mask(self, mask):
-        left_padding = int((self.block_size-1) / 2)
-        right_padding = int(self.block_size / 2)
-
-        non_zero_idxs = mask.nonzero()
-        nr_blocks = non_zero_idxs.shape[0]
-
-        offsets = torch.stack(
-            [
-                torch.arange(self.block_size).view(-1, 1).expand(self.block_size, self.block_size).reshape(-1), # - left_padding,
-                torch.arange(self.block_size).repeat(self.block_size), #- left_padding
-            ]
-        ).t().cuda()
-        offsets = torch.cat((torch.zeros(self.block_size**2, 2).cuda().long(), offsets.long()), 1)
-        
-        if nr_blocks > 0:
-            non_zero_idxs = non_zero_idxs.repeat(self.block_size ** 2, 1)
-            offsets = offsets.repeat(nr_blocks, 1).view(-1, 4)
-            offsets = offsets.long()
-
-            block_idxs = non_zero_idxs + offsets
-
-            padded_mask = F.pad(mask, (left_padding, right_padding, left_padding, right_padding))
-            padded_mask[block_idxs[:, 0], block_idxs[:, 1], block_idxs[:, 2], block_idxs[:, 3]] = 1.
-        else:
-            padded_mask = F.pad(mask, (left_padding, right_padding, left_padding, right_padding))
-            
-        block_mask = 1 - padded_mask#[:height, :width]
-        return block_mask
-
 class BasicBlock(nn.Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
-                 base_width=64, dilation=1, norm_layer=None,drop_rate=0.0, drop_block=False,
-                 block_size=1):
+                 base_width=64, dilation=1, norm_layer=None,drop_rate=0.0):
         super(BasicBlock, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -110,9 +48,6 @@ class BasicBlock(nn.Module):
         self.stride = stride
         self.drop_rate = drop_rate
         self.num_batches_tracked = 0
-        self.drop_block = drop_block
-        self.block_size = block_size
-        self.DropBlock = DropBlock(block_size=self.block_size)
 
     def forward(self, x):
         self.num_batches_tracked += 1
@@ -125,6 +60,8 @@ class BasicBlock(nn.Module):
 
         out = self.conv2(out)
         out = self.bn2(out)
+
+        # |----------------Added to the original PyTorch implementation--------------------|
         out = self.relu(out)
 
         out = self.conv3(out)
@@ -138,14 +75,8 @@ class BasicBlock(nn.Module):
         out = self.maxpool(out)
 
         if self.drop_rate > 0:
-            # if self.drop_block == True:
-            #     feat_size = out.size()[2]
-            #     keep_rate = max(1.0 - self.drop_rate / (20*2000) * (self.num_batches_tracked), 1.0 - self.drop_rate)
-            #     gamma = (1 - keep_rate) / self.block_size**2 * feat_size**2 / (feat_size - self.block_size + 1)**2
-            #     out = self.DropBlock(out, gamma=gamma)
-            # else:
             out = F.dropout(out, p=self.drop_rate, training=self.training, inplace=True)
-
+        # |--------------------------------------------------------------------------------|
         return out
 
 class ResNet(nn.Module):
@@ -205,8 +136,6 @@ class ResNet(nn.Module):
                 nn.Conv2d(self.inplanes, planes * block.expansion,
                           kernel_size=1, stride=1, bias=False),
                 nn.BatchNorm2d(planes * block.expansion),
-                # conv1x1(self.inplanes, planes * block.expansion, stride),
-                # norm_layer(planes * block.expansion),
             )
 
         layers = []
@@ -227,6 +156,7 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
