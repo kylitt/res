@@ -19,7 +19,7 @@ def normalize(x):
     out = x.div(norm)
     return out
 
-def test(model,meta_test_data):
+def test(model, meta_test_data):
 
     # Shift into evaluation mode
     model.eval()
@@ -29,7 +29,7 @@ def test(model,meta_test_data):
     with torch.no_grad():
 
         # tqdm just displays a convenient progress bar
-        for idx, data in tqdm(enumerate(meta_test_data)):
+        for data in tqdm(meta_test_data):
 
             # Retrieve data and assign to default GPU
             support_xs, support_ys, query_xs, query_ys = data

@@ -7,6 +7,8 @@ from dataset.mini_imagenet import ImageNet, MetaImageNet
 from train import train
 from validate import validate
 from test import test
+from distill import distill
+from pytorch_resnet import resnet18
 
 
 def main():
@@ -17,18 +19,24 @@ def main():
     args.n_test_runs = 600
 
     # Load Data
-    train_data = DataLoader(ImageNet(args=args,partition='train'), batch_size=64, shuffle=True, drop_last=True)
-    val_data = DataLoader(ImageNet(args=args,partition='val'), batch_size=32)
+    train_data = DataLoader(ImageNet(args=args, partition='train'), batch_size=64, shuffle=True, drop_last=True)
+    val_data = DataLoader(ImageNet(args=args, partition='val'), batch_size=32)
     meta_test_data = DataLoader(MetaImageNet(args=args, partition='test', fix_seed=False), batch_size=1)
 
     # Number of classes
     n_cls = 64
 
-    # Load the Pytorch ResNet18 model
-    model = torch.hub.load('pytorch/vision:v0.10.0','resnet18', pretrained = False, num_classes=n_cls)
+    # Number of distillations
+    distillations = 0
+
+    # Number of epochs
+    epoch = 60
+
+    # Load the Pytorch ResNet18 model, adapted to a ResNet12
+    model = resnet18(pretrained = False, num_classes=n_cls)
 
     # Create a Stochastic Gradient Descent optimizer with the given parameters
-    optimizer = optim.SGD(model.parameters(),lr=0.05,momentum=0.9,weight_decay=5e-4)
+    optimizer = optim.SGD(model.parameters(), lr=0.05, momentum=0.9, weight_decay=5e-4)
 
     # Cross Entropy Loss 
     criterion = nn.CrossEntropyLoss()
@@ -38,7 +46,8 @@ def main():
 
         # Multiple GPU?
         if torch.cuda.device_count() > 1:
-            model = nn.DataParallel(model)
+            model_t = nn.DataParallel(model)
+            #model_s = nn.DataParallel(model_s)
 
         # else assigns to the default GPU
         model = model.to('cuda')
@@ -47,16 +56,62 @@ def main():
         # Optimize algorithm for the given hardware
         cudnn.benchmark = True
 
-    epoch = 10
+    # train
     for i in range(1,epoch+1):
-        # train
-        train(i, model,optimizer,train_data,criterion)
+        # train teacher
+        train(i, model, optimizer, train_data, criterion)
 
-        #validate
-        validate(i, model, val_data, criterion)
+        #validate teacher
+        #validate(i, model, val_data, criterion)
 
-    #test
-    test(model,meta_test_data)
+    # does not support multiple gpu
+    state = {'model': model.state_dict()}
+    torch.save(state,'./models/resnet_simple.pth')
+
+    # distill
+    # set model as teacher
+    model_t = model
+    for j in range(distillations):
+        # Sudent model
+        model_s = resnet18(pretrained = False, num_classes=n_cls)
+
+        # Create a Stochastic Gradient Descent optimizer with the given parameters
+        optimizer_s = optim.SGD(model_s.parameters(), lr=0.05, momentum=0.9, weight_decay=5e-4)
+
+        # Cross Entropy Loss 
+        criterion_s = nn.CrossEntropyLoss()
+        
+        # GPU Available?
+        if torch.cuda.is_available():
+
+            # Multiple GPU?
+            if torch.cuda.device_count() > 1:
+                model_t = nn.DataParallel(model_t)
+                model_s = nn.DataParallel(model_s)
+
+            # else assigns to the default GPU
+            model_t = model_t.to('cuda')
+            model_s = model_s.to('cuda')
+            criterion_s = criterion_s.to('cuda')
+
+            # Optimize algorithm for the given hardware
+            cudnn.benchmark = True
+        for j in range(1,epoch+1):
+            # distill from teacher to student
+            distill(j, model_t, model_s, optimizer_s, train_data, criterion_s)
+
+            #validate student
+            #validate(j, model_s, val_data, criterion_s)
+
+        # Teacher model
+        model_t = model_s
+
+    # does not support multiple gpu
+    state = {'model': model_t.state_dict()}
+    torch.save(state,'./models/resnet_dist.pth')
+
+    # test final model
+    test(model_t, meta_test_data)
 
 if __name__ == '__main__':
     main()

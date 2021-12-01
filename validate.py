@@ -1,5 +1,4 @@
 import torch
-import sys
 
 def validate(epoch, model, val_data, criterion):
     print('eval ...')
@@ -10,7 +9,7 @@ def validate(epoch, model, val_data, criterion):
     # Turn off gradient within this context
     with torch.no_grad():
 
-        for idx, (input,target,_) in enumerate(val_data):
+        for idx, (input, target, _) in enumerate(val_data):
 
             # Convert input data to a float
             input = input.float()
@@ -26,11 +25,10 @@ def validate(epoch, model, val_data, criterion):
             output = model(input)
 
             # Loss
-            loss = criterion(output,target)
+            loss = criterion(output, target)
 
             # print info
             if idx % 100 == 0:
                 print('Epoch: [{0}][{1}/{2}]\t'
                     'Loss {loss:.4f}\t'.format(
                     epoch, idx, len(val_data), loss=loss.item()))
-                sys.stdout.flush()
