@@ -1,8 +1,7 @@
 import torch
 import torch.nn.functional as F
-import sys
 
-# helper function
+# helper function from paper
 def div(output_s, output_t):
     temperature = 4
     s = F.log_softmax(output_s/temperature, dim=1)

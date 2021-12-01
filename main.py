@@ -8,6 +8,8 @@ from train import train
 from validate import validate
 from test import test
 from distill import distill
+from resnet import resnet12
+from pytorch_resnet import resnet18
 
 
 def main():
@@ -26,14 +28,16 @@ def main():
     n_cls = 64
 
     # Number of distillations
-    distillations = 0
+    distillations = 1
 
     # Number of epochs
-    epoch = 1
+    epoch = 10
 
     # Teacher model
     # Load the Pytorch ResNet18 model
-    model = torch.hub.load('pytorch/vision:v0.10.0','resnet18', pretrained = False, num_classes=n_cls)
+    model = resnet12(avg_pool=True, drop_rate=0.1, dropblock_size=5, num_classes=n_cls)
+    model = resnet18(pretrained = False, num_classes=n_cls)
+    #model = torch.hub.load('pytorch/vision:v0.10.0','resnet18', pretrained = False, num_classes=n_cls)
     # Create a Stochastic Gradient Descent optimizer with the given parameters
     optimizer = optim.SGD(model.parameters(), lr=0.05, momentum=0.9, weight_decay=5e-4)
     # Cross Entropy Loss 
@@ -73,7 +77,9 @@ def main():
     for j in range(distillations):
         # Sudent model
         # Load the Pytorch ResNet18 model
-        model_s = torch.hub.load('pytorch/vision:v0.10.0','resnet18', pretrained = False, num_classes=n_cls)
+        #model_s = resnet12(avg_pool=True, drop_rate=0.1, dropblock_size=5, num_classes=n_cls)
+        model_s = resnet18(pretrained = False, num_classes=n_cls)
+        #model_s = torch.hub.load('pytorch/vision:v0.10.0','resnet18', pretrained = False, num_classes=n_cls)
         # Create a Stochastic Gradient Descent optimizer with the given parameters
         optimizer_s = optim.SGD(model_s.parameters(), lr=0.05, momentum=0.9, weight_decay=5e-4)
         # Cross Entropy Loss 

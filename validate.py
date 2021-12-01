@@ -1,5 +1,4 @@
 import torch
-import sys
 
 def validate(epoch, model, val_data, criterion):
     print('eval ...')
@@ -33,4 +32,3 @@ def validate(epoch, model, val_data, criterion):
                 print('Epoch: [{0}][{1}/{2}]\t'
                     'Loss {loss:.4f}\t'.format(
                     epoch, idx, len(val_data), loss=loss.item()))
-                sys.stdout.flush()

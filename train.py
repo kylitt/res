@@ -1,5 +1,4 @@
 import torch
-import sys
 
 def train(epoch, model, optimizer, train_data, criterion):
     print('train ...')
