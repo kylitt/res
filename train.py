@@ -1,19 +1,17 @@
 import torch
 import numpy as np
 
-# Helper
-def adjust_learning_rate(epoch, optimizer):
-    decay_epochs = np.array([20,40])
-    decay_rate = 0.1
-    steps = np.sum(epoch > decay_epochs)
+# Helper function to adjust learning rate, from paper
+def adjust_learning_rate(epoch, optimizer, args):
+    steps = np.sum(epoch > args.decay_e)
     if steps > 0:
-        new_lr = 0.05 * (decay_rate ** steps)
-        #print(new_lr)
+        new_lr = args.lr * (args.decay_r ** steps)
+        print(new_lr)
         for param_group in optimizer.param_groups:
             param_group['lr'] = new_lr
 
-def train(epoch, model, optimizer, train_data, criterion):
-    adjust_learning_rate(epoch,optimizer)
+def train(epoch, args, model, optimizer, train_data, criterion):
+    adjust_learning_rate(epoch,optimizer, args)
     print('train ...')
 
     # Shift into train mode
