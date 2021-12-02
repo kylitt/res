@@ -19,14 +19,15 @@ from dataset.mini_imagenet import ImageNet, MetaImageNet
 def main():
     # https://docs.python.org/3/library/argparse.html
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epoch', type=int, default=60, metavar='INT', help='number of epochs to run')
+    parser.add_argument('--epoch', type=int, default=100, metavar='INT', help='number of epochs to run')
     parser.add_argument('--distill', type=int, default=0, metavar='INT', help='number of distillation runs')
     parser.add_argument('--val', type=bool, default=False, metavar='BOOL', help='run validation each epoch')
 
     parser.add_argument('--pretrain', type=bool, default=False, metavar='BOOL', help='load a resnet model from ./models')
+    parser.add_argument('--n_shots', type=int, default=1, metavar='INT', choices=[1, 5])
 
     parser.add_argument('--lr', type=float, default=0.05, metavar='FLOAT', help='learning rate')
-    parser.add_argument('--decay_e', type=str, default='20,40', metavar='LIST', help='what epochs to decay the learning rate')
+    parser.add_argument('--decay_e', type=str, default='60,80', metavar='LIST', help='what epochs to decay the learning rate')
     parser.add_argument('--decay_r', type=float,  default=0.1, metavar='FLOAT', help='decay rate for learning rate')
 
     parser.add_argument('--weight', type=float, default=5e-4, metavar='FLOAT', help='SGD weight decay')
@@ -130,7 +131,7 @@ def main():
 
         # does not support multiple gpu
         state = {'model': model_t.state_dict()}
-        torch.save(state,'./models/resnet_dist.pth')
+        torch.save(state,'./models/resnet_dist_ver{j}.pth')
 
     # test final model
     test(model_t, meta_test_data)
