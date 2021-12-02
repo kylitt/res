@@ -1,14 +1,20 @@
 import torch
 import numpy as np
+import torch.nn as nn
 import torch.nn.functional as F
 
 # Helper RepDistiller, https://github.com/HobbitLong/RepDistiller
-def div(output_s, output_t):
-    temperature = 4
-    s = F.log_softmax(output_s/temperature, dim=1)
-    t = F.softmax(output_t/temperature, dim=1)
-    loss = F.kl_div(s, t, reduction='sum') * (temperature**2) / s.shape[0]
-    return loss
+class DistillKL(nn.Module):
+    """KL divergence for distillation"""
+    def __init__(self, T):
+        super(DistillKL, self).__init__()
+        self.T = T
+
+    def forward(self, y_s, y_t):
+        p_s = F.log_softmax(y_s/self.T, dim=1)
+        p_t = F.softmax(y_t/self.T, dim=1)
+        loss = F.kl_div(p_s, p_t, reduction='sum') * (self.T**2) / y_s.shape[0]
+        return loss
 
 # Helper function to adjust learning rate, from paper
 def adjust_learning_rate(epoch, optimizer, args):
@@ -18,8 +24,26 @@ def adjust_learning_rate(epoch, optimizer, args):
         #print(new_lr)
         for param_group in optimizer.param_groups:
             param_group['lr'] = new_lr
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
             
-def distill(epoch, args,  model_t, model_s, optimizer, train_data, criterion):
+def distill(epoch, args,  model_t, model_s, optimizer, train_data, criterion_s, criterion_div):
+    losses = AverageMeter()
     adjust_learning_rate(epoch,optimizer, args)
     print('distillation ...')
     # Shift into train mode
@@ -43,11 +67,11 @@ def distill(epoch, args,  model_t, model_s, optimizer, train_data, criterion):
             output_t = model_t(input)
 
         # Loss
-        loss_cls = criterion(output_s, target)
-        loss_div = div(output_s, output_t)
+        loss_cls = criterion_s(output_s, target)
+        loss_div = criterion_div(output_s, output_t)
         
         loss = 0.5 * loss_cls + 0.5 * loss_div
-
+        losses.update(loss.item(), input.size(0))
 
         # Set the gradient of all optimized tensors to zero
         optimizer.zero_grad()
@@ -61,5 +85,6 @@ def distill(epoch, args,  model_t, model_s, optimizer, train_data, criterion):
         # print info
         if idx % 100 == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
-                'Loss {loss:.4f}\t'.format(
-                epoch, idx, len(train_data), loss=loss.item()))
+                'Loss {loss.avg:.4f}\t'.format(
+                epoch, idx, len(train_data), loss=losses))
+    return losses.avg
