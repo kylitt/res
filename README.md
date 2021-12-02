@@ -1,6 +1,8 @@
 # Credit
 This code is a streamined version of the work done by [WangYueFt](https://github.com/WangYueFt/rfs) on github
 
+Make sure to add a `models` folder to hold the saved models as well as a `dataset` folder to hold the miniimagenet dataset from the dropbox below.
+
 # RFS
 
 Representations for Few-Shot Learning (RFS). This repo covers the implementation of the following paper:  
