@@ -1,3 +1,7 @@
+# All of this has been adpated from the original paper 
+# to ensure that the data is the same
+
+
 import os
 import pickle
 from PIL import Image
