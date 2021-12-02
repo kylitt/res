@@ -67,7 +67,7 @@ class MetaImageNet(ImageNet):
         super(MetaImageNet, self).__init__(args, partition, False)
         self.fix_seed = fix_seed
         self.n_ways = 5
-        self.n_shots = 1
+        self.n_shots = args.n_shots
         self.n_queries = 15
         self.classes = list(self.data.keys())
         self.n_test_runs = args.n_test_runs
