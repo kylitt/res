@@ -16,45 +16,41 @@ import numpy as np
 def main():
     # https://docs.python.org/3/library/argparse.html
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epoch', type=int, default=60, help='number of epochs to run')
-    parser.add_argument('--distill', type=int, default=0, help='number of distillation runs')
+    parser.add_argument('--epoch', type=int, default=60, metavar='INT', help='number of epochs to run')
+    parser.add_argument('--distill', type=int, default=0, metavar='INT', help='number of distillation runs')
+    parser.add_argument('--val', type=bool, default=False, metavar='BOOL', help='run validation each epoch')
 
-    parser.add_argument('--lr', type=float, default=0.05,help='learning rate')
-    parser.add_argument('--decay_e', type=str, default='20,40', metavar='A,B,C...', help='what epochs to decay the learning rate')
-    parser.add_argument('--decay_r', type=float, default=0.1, help='decay rate for learning rate')
+    parser.add_argument('--pretrain', type=bool, default=False, metavar='BOOL', help='load a resnet model from ./models')
 
-    parser.add_argument('--weight', type=float, default=5e-4, help='SGD weight decay')
-    parser.add_argument('--momentum', type=float, default=0.9, help='SGD momentum')
-    parser.add_argument('--batch_s', type=int, default=64, help='SGD batch size')
+    parser.add_argument('--lr', type=float, default=0.05, metavar='FLOAT', help='learning rate')
+    parser.add_argument('--decay_e', type=str, default='20,40', metavar='LIST', help='what epochs to decay the learning rate')
+    parser.add_argument('--decay_r', type=float,  default=0.1, metavar='FLOAT', help='decay rate for learning rate')
 
-    # From the paper, used for the data loading 
-    parser.add_argument('--data_root', type=str, default='./data/miniImageNet', metavar='D', help='path to data root')
-    parser.add_argument('--n_test_runs', type=int, default=600, metavar='N',help='number of test runs')
+    parser.add_argument('--weight', type=float, default=5e-4, metavar='FLOAT', help='SGD weight decay')
+    parser.add_argument('--momentum', type=float, default=0.9, metavar='FLOAT', help='SGD momentum')
+    parser.add_argument('--batch_s', type=int, default=64, metavar='INT', help='SGD batch size')
 
     args = parser.parse_args()
-    args.data_aug = True
 
-    iterations = args.decay_e.split(',')
-    args.decay_e = list([])
-    for it in iterations:
-        args.decay_e.append(int(it))
-    args.decay_e = np.array(args.decay_e)
-    # ImageNet/MetaImageNet class uses this notation for accessing attributes
-    # args = lambda x: None
-    # args.data_root = './data/miniImageNet'
-    # args.data_aug = True
-    # args.n_test_runs = 600
+    # From the paper, used for the data loading 
+    args.data_aug = True
+    args.data_root = './data/miniImageNet'
+    args.n_test_runs = 600
+
+    # parse input string into a numpy array
+    args.decay_e = np.fromstring(args.decay_e, dtype=int, sep=',')
 
     # Load Data
     train_data = DataLoader(ImageNet(args=args, partition='train'), batch_size=args.batch_s, shuffle=True, drop_last=True)
-    val_data = DataLoader(ImageNet(args=args, partition='val'), batch_size=args.batch_s // 2)
     meta_test_data = DataLoader(MetaImageNet(args=args, partition='test', fix_seed=False), batch_size=1)
+    if args.val:
+        val_data = DataLoader(ImageNet(args=args, partition='val'), batch_size=args.batch_s // 2)
 
     # Number of classes
     n_cls = 64
 
     # Load the Pytorch ResNet18 model, adapted to a ResNet12
-    model = resnet18(pretrained = False, num_classes=n_cls)
+    model = resnet18(pretrained = args.pretrain, num_classes=n_cls)
 
     # Create a Stochastic Gradient Descent optimizer with the given parameters
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight)
@@ -68,7 +64,6 @@ def main():
         # Multiple GPU?
         if torch.cuda.device_count() > 1:
             model_t = nn.DataParallel(model)
-            #model_s = nn.DataParallel(model_s)
 
         # else assigns to the default GPU
         model = model.to('cuda')
@@ -78,16 +73,18 @@ def main():
         cudnn.benchmark = True
 
     # train
-    for i in range(1,args.epoch+1):
-        # train teacher
-        train(i, args,  model, optimizer, train_data, criterion)
+    if not args.pretrain:
+        for i in range(1,args.epoch+1):
+            # train teacher
+            train(i, args,  model, optimizer, train_data, criterion)
 
-        #validate teacher
-        #validate(i, model, val_data, criterion)
+            #validate teacher
+            if args.val:
+                validate(i, model, val_data, criterion)
 
-    # does not support multiple gpu
-    state = {'model': model.state_dict()}
-    torch.save(state,'./models/resnet_simple.pth')
+        # does not support multiple gpu
+        state = {'model': model.state_dict()}
+        torch.save(state,'./models/resnet_simple.pth')
 
     # distill
     # set model as teacher
@@ -122,14 +119,15 @@ def main():
             distill(j, args,  model_t, model_s, optimizer_s, train_data, criterion_s)
 
             #validate student
-            #validate(j, model_s, val_data, criterion_s)
+            if args.val:
+                validate(j, model_s, val_data, criterion_s)
 
         # Teacher model
         model_t = model_s
 
-    # does not support multiple gpu
-    state = {'model': model_t.state_dict()}
-    torch.save(state,'./models/resnet_dist.pth')
+        # does not support multiple gpu
+        state = {'model': model_t.state_dict()}
+        torch.save(state,'./models/resnet_dist.pth')
 
     # test final model
     test(model_t, meta_test_data)

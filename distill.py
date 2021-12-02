@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 
-# helper function from paper
+# Helper RepDistiller, https://github.com/HobbitLong/RepDistiller
 def div(output_s, output_t):
     temperature = 4
     s = F.log_softmax(output_s/temperature, dim=1)
@@ -10,7 +10,7 @@ def div(output_s, output_t):
     loss = F.kl_div(s, t, reduction='sum') * (temperature**2) / s.shape[0]
     return loss
 
-# Helper
+# Helper function to adjust learning rate, from paper
 def adjust_learning_rate(epoch, optimizer, args):
     steps = np.sum(epoch > args.decay_e)
     if steps > 0:
