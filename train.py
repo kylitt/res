@@ -6,7 +6,7 @@ def adjust_learning_rate(epoch, optimizer, args):
     steps = np.sum(epoch > args.decay_e)
     if steps > 0:
         new_lr = args.lr * (args.decay_r ** steps)
-        print(new_lr)
+        #print(new_lr)
         for param_group in optimizer.param_groups:
             param_group['lr'] = new_lr
 

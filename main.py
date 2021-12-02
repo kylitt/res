@@ -1,17 +1,20 @@
 import argparse
+import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
-from dataset.mini_imagenet import ImageNet, MetaImageNet
+
+# Our local code
 from train import train
 from validate import validate
 from test import test
 from distill import distill
 from pytorch_resnet import resnet18
-import numpy as np
 
+# Local code from the paper, https://github.com/WangYueFt/rfs
+from dataset.mini_imagenet import ImageNet, MetaImageNet
 
 def main():
     # https://docs.python.org/3/library/argparse.html
@@ -46,7 +49,7 @@ def main():
     if args.val:
         val_data = DataLoader(ImageNet(args=args, partition='val'), batch_size=args.batch_s // 2)
 
-    # Number of classes
+    # Number of classes set for miniImageNet
     n_cls = 64
 
     # Load the Pytorch ResNet18 model, adapted to a ResNet12

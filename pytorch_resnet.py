@@ -49,11 +49,8 @@ class BasicBlock(nn.Module):
         self.downsample = downsample
         self.stride = stride
         self.drop_rate = drop_rate
-        self.num_batches_tracked = 0
 
     def forward(self, x):
-        self.num_batches_tracked += 1
-
         identity = x
 
         out = self.conv1(x)
@@ -79,6 +76,7 @@ class BasicBlock(nn.Module):
         if self.drop_rate > 0:
             out = F.dropout(out, p=self.drop_rate, training=self.training, inplace=True)
         # |--------------------------------------------------------------------------------|
+
         return out
 
 class ResNet(nn.Module):
@@ -189,9 +187,10 @@ def resnet18(pretrained=False, progress=True, **kwargs):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
+    # |----------------------------------adapted the layers in each block----------------------------------------------|
     return _resnet('resnet18', BasicBlock, [1, 1, 1, 1], pretrained, progress,
                    **kwargs)
-
+    # |-------------------------------------------now a resnet12-------------------------------------------------------|
 
 
 # [docs]def resnet34(pretrained=False, progress=True, **kwargs):
