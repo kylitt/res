@@ -172,14 +172,14 @@ class ResNet(nn.Module):
         return self._forward_impl(x)
 
 
-def _resnet(arch, block, layers, pretrained, progress, **kwargs):
+def _resnet(arch, block, layers, pretrained, model_path, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     if pretrained:
-        model.load_state_dict(torch.load('./models/resnet_simple.pth')['model'])
+        model.load_state_dict(torch.load(model_path)['model'])
     return model
 
 
-def resnet18(pretrained=False, progress=True, **kwargs):
+def resnet18(pretrained=False, progress=True, model_path='', **kwargs):
     r"""ResNet-18 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
 
@@ -188,7 +188,7 @@ def resnet18(pretrained=False, progress=True, **kwargs):
         progress (bool): If True, displays a progress bar of the download to stderr
     """
     # |----------------------------------adapted the layers in each block----------------------------------------------|
-    return _resnet('resnet18', BasicBlock, [1, 1, 1, 1], pretrained, progress,
+    return _resnet('resnet18', BasicBlock, [1, 1, 1, 1], pretrained, model_path, progress,
                    **kwargs)
     # |-------------------------------------------now a resnet12-------------------------------------------------------|
 
