@@ -21,36 +21,20 @@ def adjust_learning_rate(epoch, optimizer, args):
     steps = np.sum(epoch > args.decay_e)
     if steps > 0:
         new_lr = args.lr * (args.decay_r ** steps)
-        #print(new_lr)
         for param_group in optimizer.param_groups:
             param_group['lr'] = new_lr
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
             
 def distill(epoch, args,  model_t, model_s, optimizer, train_data, criterion_s, criterion_div):
-    losses = AverageMeter()
+    # Logging variables
+    sum = 0
+    avg = 0
+
     adjust_learning_rate(epoch,optimizer, args)
     print('distillation ...')
     # Shift into train mode
     model_s.train()
     model_t.eval()
     for idx, (input, target, _) in enumerate(train_data):
-        
         # Convert input data to a float
         input = input.float()
 
@@ -71,7 +55,10 @@ def distill(epoch, args,  model_t, model_s, optimizer, train_data, criterion_s, 
         loss_div = criterion_div(output_s, output_t)
         
         loss = 0.5 * loss_cls + 0.5 * loss_div
-        losses.update(loss.item(), input.size(0))
+
+        # Logging
+        sum += loss.item()
+        avg = sum / (idx + 1)
 
         # Set the gradient of all optimized tensors to zero
         optimizer.zero_grad()
@@ -82,9 +69,9 @@ def distill(epoch, args,  model_t, model_s, optimizer, train_data, criterion_s, 
         # Perform a single optimization step
         optimizer.step()
         
-        # print info
+        # print info every 100 inputs
         if idx % 100 == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
-                'Loss {loss.avg:.4f}\t'.format(
-                epoch, idx, len(train_data), loss=losses))
-    return losses.avg
+                'Loss {loss:.4f}\t'.format(
+                epoch, idx, len(train_data), loss = avg))
+    return avg
