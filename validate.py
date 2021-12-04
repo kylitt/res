@@ -1,6 +1,9 @@
 import torch
 
 def validate(epoch, model, val_data, criterion):
+    # Logging variables
+    sum = 0
+    avg = 0
     print('eval ...')
 
     # Shift into evaluation mode
@@ -27,8 +30,13 @@ def validate(epoch, model, val_data, criterion):
             # Loss
             loss = criterion(output, target)
 
+            # Logging
+            sum += loss.item()
+            avg = sum / (idx + 1)
+
             # print info
             if idx % 100 == 0:
                 print('Epoch: [{0}][{1}/{2}]\t'
                     'Loss {loss:.4f}\t'.format(
-                    epoch, idx, len(val_data), loss=loss.item()))
+                    epoch, idx, len(val_data), loss=avg))
+    return avg
