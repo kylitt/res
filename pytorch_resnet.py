@@ -174,7 +174,7 @@ class ResNet(nn.Module):
 
 def _resnet(arch, block, layers, pretrained, model_path, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
-    if pretrained:
+    if model_path:
         model.load_state_dict(torch.load(model_path)['model'])
     return model
 
