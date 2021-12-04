@@ -26,9 +26,8 @@ def main():
     parser.add_argument('--val', type=bool, default=False, metavar='BOOL', help='run validation each epoch')
     parser.add_argument('--save_freq', type=int, default=50, metavar='INT', help='how often to save')
 
-    parser.add_argument('--pretrained', type=bool, default=False, metavar='BOOL', help='load a resnet model from ./models')
-    parser.add_argument('--model_path', type=str, metavar='STR', help='path to the model if pretraining')
-    
+    parser.add_argument('--model_path', type=str, default='', metavar='STR', help='path to a pretrained model')
+
     parser.add_argument('--n_shots', type=int, default=1, metavar='INT', choices=[1, 5])
 
     parser.add_argument('--lr', type=float, default=0.05, metavar='FLOAT', help='learning rate')
@@ -52,14 +51,14 @@ def main():
     # Load Data
     train_data = DataLoader(ImageNet(args=args, partition='train'), batch_size=args.batch_s, shuffle=True, drop_last=True)
     meta_test_data = DataLoader(MetaImageNet(args=args, partition='test', fix_seed=False), batch_size=1)
-    if args.val or args.pretrained:
+    if args.val or args.model_path:
         val_data = DataLoader(ImageNet(args=args, partition='val'), batch_size=args.batch_s // 2)
 
     # Number of classes set for miniImageNet
     n_cls = 64
-    print(args.model_path)
+
     # Load the Pytorch ResNet18 model, adapted to a ResNet12
-    model = resnet18(pretrained = args.pretrained, model_path=args.model_path, num_classes=n_cls)
+    model = resnet18(model_path=args.model_path, num_classes=n_cls)
 
     # Create a Stochastic Gradient Descent optimizer with the given parameters
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight)
@@ -80,28 +79,29 @@ def main():
 
         # Optimize algorithm for the given hardware
         cudnn.benchmark = True
-
     time = datetime.now().isoformat().replace('-','_').replace(':','_').replace('.','_')
     # train
-    if not args.pretrained:
+    if not args.model_path:
         # Create the Tensorboard Logger
-        writer = SummaryWriter()
+        writer = SummaryWriter(log_dir=('runs/{}_pretraining').format(time))
         for i in range(1,args.epoch+1):
             # train teacher
             loss = train(i, args,  model, optimizer, train_data, criterion)
             writer.add_scalar('Loss/train', loss, i)
             #validate teacher
             if args.val:
-                validate(i, model, val_data, criterion)
+                eval = validate(i, model, val_data, criterion)
+                writer.add_scalar('Loss/validate', eval, i)
             if(i % args.save_freq == 0):
                 state = {'model': model.state_dict()}
                 torch.save(state,('./models/resnet_simple_epoch{}_{}.pth').format(i,time))
         writer.flush()
+        writer.close()
         # does not support multiple gpu
         state = {'model': model.state_dict()}
         torch.save(state,('./models/resnet_simple_{}.pth').format(time))
-        writer.close()
     else:
+        print('Validate Loaded model...')
         validate(0, model, val_data, criterion)
 
     # distill
@@ -109,9 +109,10 @@ def main():
     model_t = model
     for j in range(args.distill):
         # Create the Tensorboard Logger
-        writer = SummaryWriter()
+        writer = SummaryWriter(log_dir=('runs/{}_distillation{}').format(time,j))
+
         # Sudent model
-        model_s = resnet18(pretrained = False, num_classes=n_cls)
+        model_s = resnet18(num_classes=n_cls)
 
         # Create a Stochastic Gradient Descent optimizer with the given parameters
         optimizer_s = optim.SGD(model_s.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight)
@@ -142,16 +143,17 @@ def main():
         for k in range(1,args.epoch+1):
             # distill from teacher to student
             loss = distill(k, args,  model_t, model_s, optimizer_s, train_data, criterion_s, criterion_div)
-            writer.add_scalar('Loss/train', loss, k)
+            writer.add_scalar(('Loss/train').format(j), loss, k)
             #validate student
             if args.val:
-                validate(k, model_s, val_data, criterion_s)
+                eval = validate(k, model_s, val_data, criterion_s)
+                writer.add_scalar(('Loss/validate').format(j), eval, k)
 
             if(k % args.save_freq == 0):
                 state = {'model': model.state_dict()}
                 torch.save(state,('./models/resnet_dist_epoch{}_ver{}_{}.pth').format(k,j,time))
             writer.flush()
-        writer.close()
+            writer.close()
         # Teacher model
         model_t = model_s
 
@@ -159,7 +161,6 @@ def main():
         state = {'model': model_t.state_dict()}
         torch.save(state,('./models/resnet_dist_ver{}_{}.pth').format(j,time))
 
-    writer.close()
     # test final model
     test(model_t, meta_test_data)
 
