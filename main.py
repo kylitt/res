@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from datetime import datetime
+import re
 
 # Our local code
 from train import train
@@ -45,14 +45,20 @@ def main():
     args.data_root = './data/miniImageNet'
     args.n_test_runs = 600
 
-    # parse input string into a numpy array
-    args.decay_e = np.fromstring(args.decay_e, dtype=int, sep=',')
-
     # Load Data
     train_data = DataLoader(ImageNet(args=args, partition='train'), batch_size=args.batch_s, shuffle=True, drop_last=True)
     meta_test_data = DataLoader(MetaImageNet(args=args, partition='test', fix_seed=False), batch_size=1)
     if args.val or args.model_path:
         val_data = DataLoader(ImageNet(args=args, partition='val'), batch_size=args.batch_s // 2)
+
+    run_vars = ('epochs_{}_lr_{}_decay_e_{}_decay_r_{}_weight_{}_momentum_{}_batch_s_{}').format(args.epoch,args.lr,args.decay_e,args.decay_r,args.weight,args.momentum,args.batch_s)
+    if args.model_path:
+        # remove file type
+        path = re.sub('.pth','',args.model_path)
+    else:
+        path = './models/resnet_' + run_vars
+    # parse input string into a numpy array
+    args.decay_e = np.fromstring(args.decay_e, dtype=int, sep=',')
 
     # Number of classes set for miniImageNet
     n_cls = 64
@@ -79,11 +85,10 @@ def main():
 
         # Optimize algorithm for the given hardware
         cudnn.benchmark = True
-    time = datetime.now().isoformat().replace('-','_').replace(':','_').replace('.','_')
     # train
     if not args.model_path:
         # Create the Tensorboard Logger
-        writer = SummaryWriter(log_dir=('runs/{}_pretraining').format(time))
+        writer = SummaryWriter(log_dir=('runs/{}_pretraining').format(run_vars))
         for i in range(1,args.epoch+1):
             # train teacher
             loss = train(i, args,  model, optimizer, train_data, criterion)
@@ -94,12 +99,13 @@ def main():
                 writer.add_scalar('Loss/validate', eval, i)
             if(i % args.save_freq == 0):
                 state = {'model': model.state_dict()}
-                torch.save(state,('./models/resnet_simple_epoch{}_{}.pth').format(i,time))
+                temp_path = ('_save_epoch_{}.pth').format(i)
+                torch.save(state,path+temp_path)
         writer.flush()
         writer.close()
         # does not support multiple gpu
         state = {'model': model.state_dict()}
-        torch.save(state,('./models/resnet_simple_{}.pth').format(time))
+        torch.save(state,path+'.pth')
     else:
         print('Validate Loaded model...')
         validate(0, model, val_data, criterion)
@@ -109,7 +115,7 @@ def main():
     model_t = model
     for j in range(args.distill):
         # Create the Tensorboard Logger
-        writer = SummaryWriter(log_dir=('runs/{}_distillation{}').format(time,j))
+        writer = SummaryWriter(log_dir=('runs/{}_distillation_{}').format(run_vars,j))
 
         # Sudent model
         model_s = resnet18(num_classes=n_cls)
@@ -144,22 +150,27 @@ def main():
             # distill from teacher to student
             loss = distill(k, args,  model_t, model_s, optimizer_s, train_data, criterion_s, criterion_div)
             writer.add_scalar(('Loss/train').format(j), loss, k)
+
             #validate student
             if args.val:
                 eval = validate(k, model_s, val_data, criterion_s)
                 writer.add_scalar(('Loss/validate').format(j), eval, k)
 
             if(k % args.save_freq == 0):
+                temp_path = path + ('_dist_ver_{}_save_epoch_{}.pth').format(j,k)
                 state = {'model': model.state_dict()}
-                torch.save(state,('./models/resnet_dist_epoch{}_ver{}_{}.pth').format(k,j,time))
+                torch.save(state,temp_path)
+
             writer.flush()
             writer.close()
+
         # Teacher model
         model_t = model_s
 
         # does not support multiple gpu
+        temp_path = path + ('_dist_ver_{}.pth').format(j)
         state = {'model': model_t.state_dict()}
-        torch.save(state,('./models/resnet_dist_ver{}_{}.pth').format(j,time))
+        torch.save(state,temp_path)
 
     # test final model
     test(model_t, meta_test_data)
