@@ -1,7 +1,9 @@
 # Credit
-This code is a streamined version of the work done by [WangYueFt](https://github.com/WangYueFt/rfs) on github
+This code is an interpretation of the work done by [WangYueFt](https://github.com/WangYueFt/rfs) on github
 
 Make sure to add a `models` folder to hold the saved models as well as a `data` folder to hold the miniimagenet dataset from the dropbox below.
+
+The Dataset Class for miniimagenet was leveraged from the original paper.
 
 # RFS
 
