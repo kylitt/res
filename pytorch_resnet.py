@@ -89,6 +89,9 @@ class ResNet(nn.Module):
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
 
+        # The paper uses 3 for the inplanes and completely skips the initial conv1, bn1, relu, and maxpool.
+        # I beleive this is aiding in their embedding, but was taking far too long to train.
+        # Stuck with the original from PyTorch
         self.inplanes = 64
         self.dilation = 1
         if replace_stride_with_dilation is None:
@@ -178,7 +181,7 @@ def _resnet(arch, block, layers, pretrained, model_path, progress, **kwargs):
         model.load_state_dict(torch.load(model_path)['model'])
     return model
 
-
+# Changed to a ResNet 12 model
 def resnet18(pretrained=False, progress=True, model_path='', **kwargs):
     r"""ResNet-18 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_

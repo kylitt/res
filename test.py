@@ -6,18 +6,19 @@ from scipy.stats import t
 from sklearn import metrics
 from sklearn.linear_model import LogisticRegression
 
-# Helper Funcitons
+
+# Helper Funcitons https://github.com/WangYueFt/rfs
 def mean_confidence_interval(data, confidence=0.95):
     a = 1.0 * np.array(data)
     n = len(a)
     m, se = np.mean(a), scipy.stats.sem(a)
     h = se * t._ppf((1+confidence)/2., n-1)
     return m, h
-
 def normalize(x):
     norm = x.pow(2).sum(1, keepdim=True).pow(1. / 2)
     out = x.div(norm)
     return out
+
 
 def test(model, meta_test_data):
 
@@ -28,7 +29,7 @@ def test(model, meta_test_data):
     # No gradient within this context
     with torch.no_grad():
 
-        # tqdm just displays a convenient progress bar
+        # tqdm just displays a convenient progress bar, idea from the paper https://github.com/WangYueFt/rfs
         for data in tqdm(meta_test_data):
 
             # Retrieve data and assign to default GPU
@@ -36,21 +37,26 @@ def test(model, meta_test_data):
             support_xs = support_xs.to('cuda')
             query_xs = query_xs.to('cuda')
             
-            batch_size, _, channel, height, width = support_xs.size()
+            # Make sure the sizes are correct
+            _, _, channel, height, width = support_xs.size()
             support_xs = support_xs.view(-1, channel, height, width)
             query_xs = query_xs.view(-1, channel, height, width)
             
+            # Send through the embedding
             support_features = model(support_xs).view(support_xs.size(0), -1)
             query_features = model(query_xs).view(query_xs.size(0), -1)
             
+            # Normalize the output of the embedding
             support_features = normalize(support_features)
             query_features = normalize(query_features)
 
+            # Correcting size
             support_features = support_features.detach().cpu().numpy()
             query_features = query_features.detach().cpu().numpy()
-
             support_ys = support_ys.view(-1).numpy()
             query_ys = query_ys.view(-1).numpy()
+
+            # Parameters from paper https://github.com/WangYueFt/rfs
             clf = LogisticRegression(penalty='l2',
                                         random_state=0,
                                         C=1.0,

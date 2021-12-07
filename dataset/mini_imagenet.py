@@ -1,5 +1,6 @@
 # All of this has been adpated from the original paper 
 # to ensure that the data is the same
+# https://github.com/WangYueFt/rfs 
 
 
 import os
@@ -45,6 +46,7 @@ class ImageNet(Dataset):
             self.file_pattern = 'miniImageNet_category_split_%s.pickle'           
         self.data = {}
         with open(os.path.join(self.data_root, self.file_pattern % partition), 'rb') as f:
+            print(f)
             data = pickle.load(f, encoding='latin1')
             self.imgs = data['data']
             self.labels = data['labels']

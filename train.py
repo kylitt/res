@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-# Helper function to adjust learning rate, from paper
+# Helper function to adjust learning rate, https://github.com/WangYueFt/rfs
 def adjust_learning_rate(epoch, optimizer, args):
     steps = np.sum(epoch > args.decay_e)
     if steps > 0:

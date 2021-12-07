@@ -16,7 +16,7 @@ class DistillKL(nn.Module):
         loss = F.kl_div(p_s, p_t, reduction='sum') * (self.T**2) / y_s.shape[0]
         return loss
 
-# Helper function to adjust learning rate, from paper
+# Helper function to adjust learning rate,  https://github.com/WangYueFt/rfs
 def adjust_learning_rate(epoch, optimizer, args):
     steps = np.sum(epoch > args.decay_e)
     if steps > 0:

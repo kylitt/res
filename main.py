@@ -40,7 +40,7 @@ def main():
 
     args = parser.parse_args()
 
-    # From the paper, used for the data loading 
+    # From the paper, used for the data loading https://github.com/WangYueFt/rfs
     args.data_aug = True
     args.data_root = './data/miniImageNet'
     args.n_test_runs = 600
@@ -51,6 +51,7 @@ def main():
     if args.val or args.model_path:
         val_data = DataLoader(ImageNet(args=args, partition='val'), batch_size=args.batch_s // 2)
 
+    # Idea from the paper to differentiate each run, rather hard to read tho. https://github.com/WangYueFt/rfs
     run_vars = ('epochs_{}_lr_{}_decay_e_{}_decay_r_{}_weight_{}_momentum_{}_batch_s_{}').format(args.epoch,args.lr,args.decay_e,args.decay_r,args.weight,args.momentum,args.batch_s)
     if args.model_path:
         # remove file type
@@ -77,7 +78,7 @@ def main():
 
         # Multiple GPU?
         if torch.cuda.device_count() > 1:
-            model_t = nn.DataParallel(model)
+            model = nn.DataParallel(model)
 
         # else assigns to the default GPU
         model = model.to('cuda')
